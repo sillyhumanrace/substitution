@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solving Systems by Substitution | Canterbury Algebra II</title>
+<style>
+:root{color-scheme:light;--ink:#19252d;--muted:#46606a;--accent:#145c51;--line:#cbd8d4;--paper:#fff;--base:#edf3ef}
+*{box-sizing:border-box}
+body{margin:0;background:var(--base);color:var(--ink);font:1rem/1.6 system-ui,sans-serif}
+header{background:#133a36;color:white;padding:2.2rem max(1.2rem,calc((100vw - 56rem)/2))}
+header p{margin:0;color:#d1ebe2}h1{font-size:clamp(2rem,5vw,3.3rem);letter-spacing:-.045em;line-height:1.1;margin:.35rem 0 0}
+main{max-width:58rem;margin:auto;padding:1.2rem}
+nav,.actions,.fields{display:flex;gap:.6rem;flex-wrap:wrap}
+nav{margin-bottom:1rem}
+button{font:inherit;font-weight:650;border:1px solid var(--line);border-radius:.55rem;background:white;color:var(--accent);padding:.5rem .9rem;cursor:pointer}
+button:hover{background:#e5f2ec}button[aria-pressed=true],button.primary{background:var(--accent);border-color:var(--accent);color:white}
+:focus-visible{outline:3px solid #87602a;outline-offset:3px}
+.card{background:var(--paper);border:1px solid var(--line);padding:clamp(1rem,4vw,2rem);border-radius:1rem}
+h2{line-height:1.2;margin:.25rem 0 .65rem;font-size:1.6rem}p{margin:.6rem 0}
+#system{display:inline-grid;gap:.15rem;padding:.7rem 1.1rem;border-left:4px solid var(--accent);background:#edf5f1;border-radius:.2rem;font:1.25rem/1.5 ui-monospace,monospace;margin:.4rem 0 1rem}
+#prompt{font-weight:650}#position{color:var(--muted);font-size:.9rem}
+label{display:block}input[type=text]{display:block;width:min(100%,15rem);font:inherit;padding:.45rem;border:1px solid #728980;border-radius:.35rem}
+label:has(input[type=radio]){margin:.25rem 0}fieldset{border:0;margin:0;padding:0}legend{font-weight:650}
+.actions{margin-top:1rem}#feedback{min-height:1.6em;font-weight:650}#feedback[data-correct=true]{color:var(--accent)}#feedback[data-correct=false]{color:#9c3928}
+#work{background:#edf5f1;padding:.75rem 1rem;border-radius:.5rem}#work p{margin:.25rem 0}#chooser{margin:0 0 .85rem;font:inherit;max-width:100%}[hidden]{display:none!important}
+#graph-card{margin-top:1rem}
+.graph-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.25rem;align-items:start}
+canvas{width:100%;height:auto;background:#f7faf8;border:1px solid var(--line);border-radius:.5rem}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.legend{font-weight:650}.first{color:#145c51}.second{color:#8c451f}
+.formula{font:1.15rem ui-monospace,monospace;padding:.65rem;background:#edf5f1}
+@media(max-width:39rem){.graph-layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><p>Canterbury School · Algebra II</p><h1>Solving Systems by Substitution</h1></header>
+<main>
+<nav aria-label="Lesson activities">
+<button type="button" data-mode="guided" aria-pressed="true">Guided example</button>
+<button type="button" data-mode="practice" aria-pressed="false">Practice</button>
+<button type="button" data-mode="advanced" aria-pressed="false">Advanced</button>
+<button type="button" data-mode="explore" aria-pressed="false">Explore the graph</button>
+</nav>
+<section id="activity-card" class="card" aria-labelledby="title">
+<p id="position"></p><h2 id="title" tabindex="-1"></h2>
+<label id="choose-label" for="chooser">Choose a problem</label><select id="chooser"></select>
+<div id="system" aria-label="System of equations"></div>
+<form id="answer-form">
+<div id="question"></div>
+<div class="actions">
+<button class="primary" type="submit" id="check">Check answer</button>
+<button type="button" id="hint">Show hint</button>
+<button type="button" id="next" hidden>Continue</button>
+<button type="button" id="restart" hidden>Start example again</button>
+</div>
+</form>
+<p id="feedback" role="status"></p>
+<p id="hint-text" role="status" hidden></p>
+<div id="work" hidden></div>
+</section>
+<section id="graph-card" class="card" hidden aria-labelledby="graph-title">
+<h2 id="graph-title" tabindex="-1">Where do the equations agree?</h2>
+<div class="graph-layout">
+<div>
+<label for="graph-case">Choose a system</label>
+<select id="graph-case">
+<option value="intersect">Compare two lines</option>
+<option value="parallel">Compare lines with equal slopes</option>
+</select>
+<p class="legend first">Solid green · y = 2x − 3</p>
+<p class="legend second" id="second-line"></p>
+<label id="constant-label" for="constant">Right side of the second equation <output id="constant-value"></output></label>
+<input id="constant" type="range" min="1" max="8" value="7" step="1">
+<label for="probe">Test an x-value <output id="probe-value"></output></label>
+<input id="probe" type="range" min="-2" max="5" value="0" step="1">
+<p id="graph-task"></p>
+<p id="comparison" class="formula" aria-live="polite"></p>
+<button type="button" id="graph-explain">Show the algebra</button>
+<p id="graph-algebra" hidden></p>
+</div>
+<canvas id="plot" width="440" height="440" aria-label="Graph of two lines. Their values at the selected x are shown beside the graph."></canvas>
+</div>
+</section>
+</main>
+<script>
+'use strict';
+const guide = [
+  {title:'Build the substituted expression', prompt:'Fill in a and b so the second equation becomes 3x − (ax + b) = 7.', fields:['a','b'], answer:[2,-3], hints:['Use the coefficient of x from the first equation.','Copy the signed constant from the first equation.'], hint:'Replace y with everything on the right side of the first equation.', work:['3x − (2x − 3) = 7']},
+  {title:'Distribute the negative', prompt:'Rewrite the left side as 3x + ax + b. Enter a and b after distributing.', fields:['a','b'], answer:[-2,3], hints:['Multiply 2x by −1.','Multiply −3 by −1.'], hint:'The minus sign multiplies both terms by −1.', work:['3x − (2x − 3) = 7','3x − 2x + 3 = 7']},
+  {title:'Collect like terms', prompt:'Combine the x-terms. Enter a and b in the simplified equation ax + b = 7.', fields:['a','b'], answer:[1,3], hints:['Combine 3x and −2x.','The constant stays the same when you combine the x-terms.'], hint:'Combine the coefficients of x and keep the constant.', work:['x + 3 = 7']},
+  {title:'Solve for the first coordinate', prompt:'Solve x + 3 = 7.', fields:['x'], answer:[4], hints:['Subtract 3 from both sides.'], hint:'Undo addition by subtracting 3.', work:['x = 4']},
+  {title:'Find the second coordinate', prompt:'Use x = 4 in the first equation to find y.', fields:['y'], answer:[5], hints:['Multiply 2 by 4, then subtract 3.'], hint:'Substitute into y = 2x − 3.', work:['y = 2(4) − 3 = 5.','The solution is (4, 5).']},
+  {title:'Verify the solution', prompt:'At (4, 5), what does the left side of the second equation equal?', fields:['value'], answer:[7], hints:['Compute 3(4) − 5.'], hint:'Both coordinates go into the original equation.', work:['3(4) − 5 = 7. The pair satisfies both original equations.']},
+  {title:'Start by isolating a variable', equations:['x + 2y = 9','2x − y = 3'], prompt:'Rewrite the first equation as x = ay + b. Enter a and b.', fields:['a','b'], answer:[-2,9], hints:['Subtract 2y from both sides.','The 9 is still on the right.'], hint:'Isolate x by moving the y-term to the other side.', work:['x = −2y + 9']},
+  {title:'Substitute and collect terms', equations:['x + 2y = 9','2x − y = 3'], prompt:'Substitute x = −2y + 9 into the second equation. Simplify it to ay + b = 3 and enter a and b.', fields:['a','b'], answer:[-5,18], hints:['After multiplying −2y by 2, subtract another y.','Multiply the 9 by 2.'], hint:'Start with 2(−2y + 9) − y = 3.', work:['2(−2y + 9) − y = 3','−5y + 18 = 3']},
+  {title:'Finish the system', equations:['x + 2y = 9','2x − y = 3'], prompt:'Solve −5y + 18 = 3 and enter the ordered pair.', fields:['x','y'], answer:[3,3], hints:['Once you have y, use x = 9 − 2y.','After subtracting 18, divide by −5.'], hint:'Find y first, then substitute it into the isolated equation.', work:['−5y = −15, so y = 3.','x = 9 − 2(3) = 3. The solution is (3, 3).']}
+];
+const practice = [
+  {title:'A variable is already isolated', equations:['y = 3x − 5','2x + y = 10'], answer:[3,4], hint:'Replace y in the second equation with the entire expression from the first.', work:['2x + (3x − 5) = 10, so 5x = 15 and x = 3.','y = 3(3) − 5 = 4.']},
+  {title:'Isolate a variable first', equations:['x + 2y = 9','2x − y = 3'], answer:[3,3], hint:'Rewrite the first equation as x = 9 − 2y. Put parentheses around that expression when substituting.', work:['2(9 − 2y) − y = 3, so 18 − 5y = 3 and y = 3.','x = 9 − 2(3) = 3.']},
+  {title:'Choose a method', equations:['3x + 2y = 16','5x − 2y = 8'], answer:[3,3.5], hint:'Compare the two y-coefficients before choosing your first move.', work:['Adding gives 8x = 24, so x = 3.','9 + 2y = 16 gives y = 7/2.']},
+  {title:'Classify the system', equations:['y = −2x + 4','4x + 2y = 10'], answer:'none', hint:'Substitute for y and read the resulting statement after the x-terms cancel.', work:['4x + 2(−2x + 4) = 10 simplifies to 8 = 10.','The equations describe parallel lines, so there is no solution.']},
+  {title:'Classify the system', equations:['y = 3x − 2','6x − 2y = 4'], answer:'infinite', hint:'Substitute for y and check whether the remaining statement is true or false.', work:['6x − 2(3x − 2) = 4 simplifies to 4 = 4.','Both equations describe the same line, so there are infinitely many solutions.']}
+];
+const advanced = [
+  {title:'Fractional coefficient', equations:['y = (2/3)x − 1','3x + 3y = 12'], answer:[3,1], hint:'Distribute 3 across both terms after substituting.', work:['3x + 3((2/3)x − 1) = 12, so 5x − 3 = 12 and x = 3.','y = (2/3)(3) − 1 = 1.']},
+  {title:'Find the missing constant', equations:['y = 2x − 3','4x − 2y = k'], prompt:'What value of k makes the system have infinitely many solutions?', scalar:true, answer:6, hint:'Substitute for y and simplify the left side.', work:['4x − 2(2x − 3) = k simplifies to 6 = k.','At k = 6, both equations describe the same line. For any other k, the system has no solution.']},
+  {title:'Correct a distribution error', equations:['y = 2x + 1','5x − 2y = 3'], prompt:'A student writes 5x − 4x + 2 = 3 after substituting. Correct the error on paper, then enter the solution.', answer:[5,11], hint:'Check the product of −2 and +1.', work:['5x − 2(2x + 1) = 3 gives 5x − 4x − 2 = 3.','x = 5, so y = 2(5) + 1 = 11.']}
+];
+const bank = {guided:guide, practice, advanced};
+const get = id => document.getElementById(id);
+const completed = {guided:new Set(),practice:new Set(),advanced:new Set()};
+let mode = 'guided';
+let index = 0;
+const problem = () => bank[mode][index];
+
+function numeric(value) {
+  const clean = value.trim().replace(/−/g,'-');
+  const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+  const pieces = clean.split('/').map(part => part.trim());
+  if (pieces.length > 2 || !pieces.every(part => decimal.test(part))) return NaN;
+  return pieces.length === 1 ? Number(pieces[0]) : Number(pieces[0]) / Number(pieces[1]);
+}
+function numberField(name) {
+  return '<label>' + name + '<input type="text" name="' + name + '" autocomplete="off"></label>';
+}
+function choices(items, prompt) {
+  return '<fieldset><legend>' + prompt + '</legend>' + items.map(([value,label]) =>
+    '<label><input type="radio" name="choice" value="' + value + '"> ' + label + '</label>'
+  ).join('') + '</fieldset>';
+}
+function coordinateFields() {
+  return '<div class="fields">' + numberField('x') + numberField('y') + '</div>';
+}
+function render() {
+  const item = problem();
+  const guided = mode === 'guided';
+  get('position').textContent = guided ? 'Step ' + (index+1) + ' of ' + guide.length :
+    'Problem ' + (index+1) + ' of ' + bank[mode].length + ' · ' + completed[mode].size + ' completed';
+  get('title').textContent = item.title;
+  get('chooser').hidden = get('choose-label').hidden = guided;
+  get('chooser').replaceChildren(...bank[mode].map((entry,i) => new Option((i+1) + '. ' + entry.title,i)));
+  get('chooser').value = index;
+  get('system').replaceChildren(...(item.equations || ['y = 2x − 3','3x − y = 7']).map(line => {
+    const equation = document.createElement('div');
+    equation.textContent = line;
+    return equation;
+  }));
+  const prompt = item.prompt || 'Solve the system on paper. Then enter your answer.';
+  const heading = '<p id="prompt">' + prompt + '</p>';
+  if (item.fields) {
+    get('question').innerHTML = heading + '<div class="fields">' + item.fields.map(numberField).join('') + '</div>';
+  } else if (item.scalar) {
+    get('question').innerHTML = heading + numberField('k');
+  } else if (guided || mode === 'advanced') {
+    get('question').innerHTML = heading + coordinateFields();
+  } else {
+    get('question').innerHTML = choices([['one','One solution'], ['none','No solution'], ['infinite','Infinitely many solutions']],prompt) +
+      '<div id="coordinates" hidden>' + coordinateFields() + '</div>';
+  }
+  get('feedback').textContent = '';
+  delete get('feedback').dataset.correct;
+  get('hint-text').hidden = true;
+  get('work').hidden = true;
+  get('next').hidden = true;
+  get('restart').hidden = true;
+  get('hint').hidden = false;
+  get('check').hidden = false;
+  get('hint').textContent = 'Show hint';
+  document.querySelectorAll('nav button').forEach(button => {
+    button.setAttribute('aria-pressed',button.dataset.mode === mode);
+  });
+}
+get('question').addEventListener('change', event => {
+  if (event.target.name === 'choice' && get('coordinates')) {
+    get('coordinates').hidden = event.target.value !== 'one';
+  }
+});
+get('answer-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const item = problem();
+  const data = new FormData(event.currentTarget);
+  const choice = data.get('choice');
+  const values = (item.fields || ['x','y']).map(field => data.get(field));
+  const choiceRequired = Boolean(event.currentTarget.elements.choice);
+  const needsPair = Array.isArray(item.answer) && (!choiceRequired || choice === 'one');
+  const missing = (item.scalar && !data.get('k').trim()) ||
+    (choiceRequired && !choice) || (needsPair && values.some(value => !value?.trim()));
+  if (missing) {
+    get('feedback').textContent = 'Complete your answer first.';
+    return;
+  }
+  let correct;
+  const close = (value, expected) => Math.abs(numeric(value) - expected) < 1e-8;
+  if (item.scalar) correct = close(data.get('k'),item.answer);
+  else if (Array.isArray(item.answer)) correct = needsPair && values.every((value,i) => close(value,item.answer[i]));
+  else correct = choice === item.answer;
+  get('feedback').dataset.correct = correct;
+  get('feedback').textContent = correct ? 'Correct.' : 'Try again. Check your substitution, signs, or solution type. You can open a hint below.';
+  if (!correct) {
+    if (item.fields) {
+      const wrong = values.findIndex((value,i) => !close(value,item.answer[i]));
+      get('feedback').textContent = item.fields[wrong] + ' needs another look. ' + item.hints[wrong];
+    }
+    return;
+  }
+  completed[mode].add(index);
+  get('work').replaceChildren(...item.work.map(line => {
+    const step = document.createElement('p');
+    step.textContent = line;
+    return step;
+  }));
+  get('work').hidden = false;
+  get('check').hidden = true;
+  get('hint').hidden = true;
+  get('hint-text').hidden = true;
+  get('next').hidden = false;
+  get('next').textContent = index < bank[mode].length-1 ? 'Continue' :
+    mode === 'guided' ? 'Explore the graph' : mode === 'practice' ? 'Go to Advanced' : 'Return to practice';
+  get('restart').hidden = !(mode === 'guided' && index === guide.length-1);
+  if (mode !== 'guided') get('position').textContent =
+    'Problem ' + (index+1) + ' of ' + bank[mode].length + ' · ' + completed[mode].size + ' completed';
+  get('next').focus();
+});
+get('hint').addEventListener('click', () => {
+  const hint = get('hint-text');
+  hint.textContent = problem().hint;
+  hint.hidden = !hint.hidden;
+  get('hint').textContent = hint.hidden ? 'Show hint' : 'Hide hint';
+});
+function open(activity, problemIndex = 0) {
+  mode = activity;
+  index = problemIndex;
+  const exploring = mode === 'explore';
+  get('activity-card').hidden = exploring;
+  get('graph-card').hidden = !exploring;
+  if (exploring) {
+    document.querySelectorAll('nav button').forEach(button =>
+      button.setAttribute('aria-pressed',button.dataset.mode === mode)
+    );
+    updateGraph();
+    get('graph-title').focus();
+    return;
+  }
+  render();
+  get('title').focus();
+}
+get('next').addEventListener('click', () => {
+  if (index < bank[mode].length-1) open(mode,index+1);
+  else open({guided:'explore',practice:'advanced',advanced:'practice'}[mode]);
+});
+get('restart').addEventListener('click', () => open('guided'));
+get('chooser').addEventListener('change', event => {
+  index = Number(event.target.value);
+  render();
+  get('chooser').focus();
+});
+document.querySelectorAll('nav button').forEach(button =>
+  button.addEventListener('click', () => open(button.dataset.mode))
+);
+function updateGraph() {
+  const parallel = get('graph-case').value === 'parallel';
+  const slope = parallel ? 2 : 3;
+  const constant = Number(get('constant').value);
+  const x = Number(get('probe').value);
+  const first = 2*x - 3;
+  const second = slope*x - constant;
+  get('second-line').textContent = 'Dashed orange · ' + slope + 'x − y = ' + constant;
+  get('constant-value').textContent = constant;
+  get('probe-value').textContent = x;
+  get('graph-task').textContent = parallel ?
+    'Adjust the right side to make the two lines coincide. Then test another x-value.' :
+    'Move the x slider until the two y-values agree. Then change the right side and find the new intersection.';
+  get('comparison').textContent = 'At x = ' + x + ', y₁ = ' + first + ' and y₂ = ' + second +
+    (first === second ? '. Both equations agree.' : '. The equations give different y-values.');
+  const substituted = slope + 'x − (2x − 3) = ' + constant;
+  get('graph-algebra').textContent = substituted + (parallel ?
+    ' simplifies to 3 = ' + constant + '. ' +
+    (constant === 3 ? 'Every x works, so there are infinitely many solutions.' :
+      'This is false for every x, so there is no solution.') :
+    ' simplifies to x + 3 = ' + constant + '. The intersection is (' +
+      (constant - 3) + ', ' + (2*(constant - 3) - 3) + ').');
+  const ctx = get('plot').getContext('2d');
+  const scale = 14;
+  const origin = 220;
+  function line(x1,y1,x2,y2,color) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.moveTo(origin + scale*x1,origin - scale*y1);
+    ctx.lineTo(origin + scale*x2,origin - scale*y2);
+    ctx.stroke();
+  }
+  ctx.clearRect(0,0,440,440);
+  ctx.lineWidth = 1;
+  for(let tick=-15;tick<=15;tick++) {
+    const color = tick === 0 ? '#687c77' : '#dae6df';
+    line(tick,-16,tick,16,color);
+    line(-16,tick,16,tick,color);
+  }
+  ctx.fillStyle = '#344b48';
+  ctx.font = '13px system-ui';
+  ctx.fillText('x',421,238);
+  ctx.fillText('y',230,16);
+  for(const tick of [-10,-5,5,10]) {
+    ctx.fillText(tick,origin+scale*tick-7,origin+16);
+    ctx.fillText(tick,origin+7,origin-scale*tick+4);
+  }
+  ctx.lineWidth = 2;
+  line(x,-16,x,16,'#79867f');
+  ctx.lineWidth = 4;
+  line(-16,-35,16,29,'#145c51');
+  ctx.setLineDash([8,6]);
+  line(-16,-16*slope-constant,16,16*slope-constant,'#a85121');
+  ctx.setLineDash([]);
+  for (const [y,color] of [[first,'#145c51'],[second,'#a85121']]) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(origin+scale*x,origin-scale*y,5,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+for (const control of ['graph-case','constant','probe']) {
+  get(control).addEventListener('input',updateGraph);
+}
+get('graph-explain').addEventListener('click', event => {
+  const algebra = get('graph-algebra');
+  algebra.hidden = !algebra.hidden;
+  event.currentTarget.textContent = algebra.hidden ? 'Show the algebra' : 'Hide the algebra';
+});
+render();
+</script>
+</body>
+</html>
